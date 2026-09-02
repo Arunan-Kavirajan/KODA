@@ -1,0 +1,117 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-accent: var(--accent);
+  --color-accent-muted: var(--accent-muted);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-terminal: var(--terminal);
+  --color-graph-dir: var(--graph-dir);
+  --color-graph-file: var(--graph-file);
+  --color-graph-module: var(--graph-module);
+  --color-graph-dep: var(--graph-dep);
+  --color-destructive: var(--destructive);
+  --font-sans: var(--font-dm-sans);
+  --font-display: var(--font-instrument-serif);
+  --font-mono: var(--font-ibm-plex-mono);
+}
+
+:root {
+  --background: #0c0b0a;
+  --foreground: #e6e2dc;
+  --surface: #131210;
+  --surface-raised: #1a1816;
+  --muted: #181614;
+  --muted-foreground: #8a847c;
+  --border: #2a2723;
+  --border-strong: #3d3832;
+  --input: #131210;
+  --ring: #c4956a;
+  --accent: #c4956a;
+  --accent-muted: #c4956a33;
+  --accent-foreground: #0c0b0a;
+  --terminal: #9a948c;
+  --graph-dir: #7a9e87;
+  --graph-file: #8a847c;
+  --graph-module: #c4956a;
+  --graph-dep: #7a8ec4;
+  --destructive: #c45c5c;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+
+  ::selection {
+    background: color-mix(in srgb, var(--accent) 25%, transparent);
+    color: var(--foreground);
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display), Georgia, serif;
+  }
+
+  .font-mono {
+    font-family: var(--font-mono), ui-monospace, monospace;
+  }
+
+  .graph-grid {
+    background-image:
+      linear-gradient(to right, color-mix(in srgb, var(--border) 35%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in srgb, var(--border) 35%, transparent) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+
+  .panel-border {
+    box-shadow: inset 0 1px 0 0 color-mix(in srgb, var(--foreground) 4%, transparent);
+  }
+
+  @keyframes draw-line {
+    from { stroke-dashoffset: 100; }
+    to { stroke-dashoffset: 0; }
+  }
+
+  @keyframes fade-up {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .animate-fade-up {
+    animation: fade-up 0.5s ease-out forwards;
+  }
+
+  .animate-draw-line {
+    stroke-dasharray: 100;
+    animation: draw-line 0.8s ease-out forwards;
+  }
+
+  .animate-pulse-dot {
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+}
