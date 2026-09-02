@@ -4,6 +4,7 @@ type StatusBarProps = {
   snapshot: RepositorySnapshot;
   status: "ready" | "loading" | "error";
   message?: string;
+  isAnalyzed?: boolean;
 };
 
 export function StatusBar({ snapshot, status, message }: StatusBarProps) {
