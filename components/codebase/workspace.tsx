@@ -23,6 +23,7 @@ const LOADING_MESSAGES = [
 ];
 
 type AnalyzeApiResponse = {
+  jobId?: string;
   status: string;
   message: string;
   snapshot?: RepositorySnapshot;
@@ -42,6 +43,7 @@ export function Workspace({ repositoryUrl }: WorkspaceProps) {
   const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0]);
   const [selectedPath, setSelectedPath] = useState<string | undefined>();
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [jobId, setJobId] = useState<string | null>(null);
   const [explorerOpen, setExplorerOpen] = useState(true);
 
   useEffect(() => {
@@ -65,6 +67,10 @@ export function Workspace({ repositoryUrl }: WorkspaceProps) {
           setError(data.error ?? data.message ?? "Analysis failed.");
           setLoading(false);
           return;
+        }
+
+        if (data.jobId) {
+          setJobId(data.jobId);
         }
 
         if (data.snapshot) {
@@ -224,6 +230,7 @@ export function Workspace({ repositoryUrl }: WorkspaceProps) {
                   snapshot={snapshot}
                   graph={graph ?? undefined}
                   selectedNodeId={selectedNodeId}
+                  jobId={jobId ?? undefined}
                 />
               </aside>
             )}

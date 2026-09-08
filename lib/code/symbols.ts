@@ -241,8 +241,6 @@ export function extractPyFunctions(source: string): CodeFunction[] {
       const name = funcMatch[2] ?? "";
       const params = funcMatch[3] ?? "";
 
-      // Top-level functions only (not indented as methods)
-      const indent = line.length - line.trimStart().length;
       // indent 0 = top level, indent 4 = class method
       // We include both but we'll separate via classes extraction
       functions.push({

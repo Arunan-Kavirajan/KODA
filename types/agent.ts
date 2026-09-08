@@ -33,6 +33,8 @@ export type AnalysisJobStatus =
   | "analyzing"
   | "building_graph"
   | "complete"
+  | "architect-analyzing"
+  | "architect-ready"
   | "failed";
 
 export type AnalysisJob = {

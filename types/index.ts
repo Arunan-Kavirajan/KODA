@@ -39,3 +39,5 @@ export type {
   AnalysisMetadata,
   RepositoryAnalysis,
 } from "./code";
+
+export type { ArchitectureReport } from "./architecture";

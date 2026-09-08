@@ -2,34 +2,82 @@
 
 import type { RepositorySnapshot } from "@/types/repository";
 import type { CodebaseGraph } from "@/types/graph";
-import type { CodeFile, PackageDependency } from "@/types/code";
+
+import { useState } from "react";
+import { ArchitectureInspector } from "./architecture-inspector";
 
 type InspectorProps = {
   snapshot: RepositorySnapshot;
   graph?: CodebaseGraph;
   selectedNodeId?: string | null;
+  jobId?: string;
 };
 
-export function Inspector({ snapshot, graph, selectedNodeId }: InspectorProps) {
-  if (!selectedNodeId || !graph) {
-    return <RepositoryOverview snapshot={snapshot} />;
-  }
+export function Inspector({ snapshot, graph, selectedNodeId, jobId }: InspectorProps) {
+  const [tab, setTab] = useState<"info" | "architecture">("info");
 
-  const node = graph.nodes.find((n) => n.id === selectedNodeId);
-  if (!node) return <RepositoryOverview snapshot={snapshot} />;
+  const renderContent = () => {
+    if (!selectedNodeId || !graph) {
+      if (tab === "architecture" && jobId) {
+        return <ArchitectureInspector jobId={jobId} />;
+      }
+      return <RepositoryOverview snapshot={snapshot} />;
+    }
 
-  switch (node.type) {
-    case "repository":
+    const node = graph.nodes.find((n) => n.id === selectedNodeId);
+    if (!node) {
+      if (tab === "architecture" && jobId) {
+        return <ArchitectureInspector jobId={jobId} />;
+      }
       return <RepositoryOverview snapshot={snapshot} />;
-    case "directory":
-      return <DirectoryInspector node={node} snapshot={snapshot} />;
-    case "file":
-      return <FileInspector node={node} snapshot={snapshot} />;
-    case "external_dependency":
-      return <DependencyInspector node={node} />;
-    default:
-      return <RepositoryOverview snapshot={snapshot} />;
-  }
+    }
+
+    switch (node.type) {
+      case "repository":
+        if (tab === "architecture" && jobId) {
+          return <ArchitectureInspector jobId={jobId} />;
+        }
+        return <RepositoryOverview snapshot={snapshot} />;
+      case "directory":
+        return <DirectoryInspector node={node} snapshot={snapshot} />;
+      case "file":
+        return <FileInspector node={node} snapshot={snapshot} />;
+      case "external_dependency":
+        return <DependencyInspector node={node} />;
+      default:
+        return <RepositoryOverview snapshot={snapshot} />;
+    }
+  };
+
+  const showTabs = !selectedNodeId || (graph && graph.nodes.find(n => n.id === selectedNodeId)?.type === "repository");
+
+  return (
+    <div className="flex h-full flex-col">
+      {showTabs && jobId && (
+        <div className="flex border-b border-border bg-background/50">
+          <button
+            onClick={() => setTab("info")}
+            className={`flex-1 py-1.5 font-mono text-[10px] uppercase tracking-wider ${
+              tab === "info" ? "border-b border-accent text-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Info
+          </button>
+          <button
+            onClick={() => setTab("architecture")}
+            className={`flex-1 py-1.5 font-mono text-[10px] uppercase tracking-wider ${
+              tab === "architecture" ? "border-b border-accent text-foreground" : "text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            Architecture
+          </button>
+        </div>
+      )}
+      <div className="flex-1 overflow-hidden">
+        {renderContent()}
+      </div>
+    </div>
+  );
 }
 
 // ─── Repository Overview ──────────────────────────────────────────────────────

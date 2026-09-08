@@ -58,7 +58,7 @@ function TreeNode({
   }, [isDir, node.entry.path, onSelect]);
 
   return (
-    <div role="treeitem" aria-expanded={isDir ? expanded : undefined}>
+    <div role="treeitem" aria-expanded={isDir ? expanded : undefined} aria-selected={isSelected}>
       <button
         type="button"
         onClick={toggle}
