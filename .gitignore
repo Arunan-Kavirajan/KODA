@@ -1,3 +1,5 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
 # dependencies
 /node_modules
 /.pnp
@@ -14,8 +16,6 @@
 # next.js
 /.next/
 /out/
-
-# production
 /build
 
 # misc
@@ -29,7 +29,12 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # env files
-.env*
+.env
+.env.*.local
+.env.local
+.env.development
+.env.production
+.env.test
 !.env.example
 
 # typescript
@@ -38,3 +43,45 @@ next-env.d.ts
 
 # vercel
 .vercel
+
+# IDEs and Editors
+/.idea
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.sublime-workspace
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.swp
+*.swo
+
+# OS metadata
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+Thumbs.db
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
