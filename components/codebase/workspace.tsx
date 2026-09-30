@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { CodebaseGraph } from "@/types/graph";
 import type { RepositorySnapshot } from "@/types/repository";
+import type { ArchitectureReport } from "@/types/architecture";
 import { FileExplorer } from "./explorer";
 import { MapPanel } from "./map-panel";
 import { StatusBar } from "./status-bar";
@@ -45,6 +46,12 @@ export function Workspace({ repositoryUrl }: WorkspaceProps) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [explorerOpen, setExplorerOpen] = useState(true);
+
+  // Architecture Report state lifted to workspace
+  const [archReport, setArchReport] = useState<ArchitectureReport | null>(null);
+  const [archLoading, setArchLoading] = useState(false);
+  const [archError, setArchError] = useState<string | null>(null);
+  const [selectedModule, setSelectedModule] = useState<string | null>(null);
 
   useEffect(() => {
     let messageIndex = 0;
@@ -113,6 +120,29 @@ export function Workspace({ repositoryUrl }: WorkspaceProps) {
       (n) => n.id === fileNodeId || n.id === dirNodeId
     );
     setSelectedNodeId(match?.id ?? null);
+  };
+
+  const runArchitect = async () => {
+    if (!jobId) return;
+    setArchLoading(true);
+    setArchError(null);
+    try {
+      const response = await fetch(`/api/analyze/${jobId}/architect`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to analyze architecture");
+      }
+
+      const data: ArchitectureReport = await response.json();
+      setArchReport(data);
+    } catch (err) {
+      setArchError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setArchLoading(false);
+    }
   };
 
   const isAnalyzed = !!(snapshot?.codeFiles && snapshot.codeFiles.length > 0);
@@ -219,6 +249,8 @@ export function Workspace({ repositoryUrl }: WorkspaceProps) {
                   onNodeSelect={handleNodeSelect}
                   selectedNodeId={selectedNodeId}
                   graph={graph ?? undefined}
+                  archReport={archReport}
+                  selectedModule={selectedModule}
                 />
               )}
             </main>
@@ -230,7 +262,13 @@ export function Workspace({ repositoryUrl }: WorkspaceProps) {
                   snapshot={snapshot}
                   graph={graph ?? undefined}
                   selectedNodeId={selectedNodeId}
-                  jobId={jobId ?? undefined}
+                  archReport={archReport}
+                  archLoading={archLoading}
+                  archError={archError}
+                  runArchitect={runArchitect}
+                  selectedModule={selectedModule}
+                  onSelectModule={setSelectedModule}
+                  onSelectNode={handleNodeSelect}
                 />
               </aside>
             )}

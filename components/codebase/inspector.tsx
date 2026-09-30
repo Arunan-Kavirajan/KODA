@@ -2,6 +2,7 @@
 
 import type { RepositorySnapshot } from "@/types/repository";
 import type { CodebaseGraph } from "@/types/graph";
+import type { ArchitectureReport } from "@/types/architecture";
 
 import { useState } from "react";
 import { ArchitectureInspector } from "./architecture-inspector";
@@ -10,33 +11,55 @@ type InspectorProps = {
   snapshot: RepositorySnapshot;
   graph?: CodebaseGraph;
   selectedNodeId?: string | null;
-  jobId?: string;
+  archReport: ArchitectureReport | null;
+  archLoading: boolean;
+  archError: string | null;
+  runArchitect: () => void;
+  selectedModule: string | null;
+  onSelectModule: (name: string | null) => void;
+  onSelectNode: (nodeId: string) => void;
 };
 
-export function Inspector({ snapshot, graph, selectedNodeId, jobId }: InspectorProps) {
+export function Inspector({
+  snapshot,
+  graph,
+  selectedNodeId,
+  archReport,
+  archLoading,
+  archError,
+  runArchitect,
+  selectedModule,
+  onSelectModule,
+  onSelectNode,
+}: InspectorProps) {
   const [tab, setTab] = useState<"info" | "architecture">("info");
 
   const renderContent = () => {
+    if (tab === "architecture") {
+      return (
+        <ArchitectureInspector
+          report={archReport}
+          loading={archLoading}
+          error={archError}
+          onRun={runArchitect}
+          selectedModule={selectedModule}
+          onSelectModule={onSelectModule}
+          onSelectNode={onSelectNode}
+        />
+      );
+    }
+
     if (!selectedNodeId || !graph) {
-      if (tab === "architecture" && jobId) {
-        return <ArchitectureInspector jobId={jobId} />;
-      }
       return <RepositoryOverview snapshot={snapshot} />;
     }
 
     const node = graph.nodes.find((n) => n.id === selectedNodeId);
     if (!node) {
-      if (tab === "architecture" && jobId) {
-        return <ArchitectureInspector jobId={jobId} />;
-      }
       return <RepositoryOverview snapshot={snapshot} />;
     }
 
     switch (node.type) {
       case "repository":
-        if (tab === "architecture" && jobId) {
-          return <ArchitectureInspector jobId={jobId} />;
-        }
         return <RepositoryOverview snapshot={snapshot} />;
       case "directory":
         return <DirectoryInspector node={node} snapshot={snapshot} />;
@@ -49,11 +72,11 @@ export function Inspector({ snapshot, graph, selectedNodeId, jobId }: InspectorP
     }
   };
 
-  const showTabs = !selectedNodeId || (graph && graph.nodes.find(n => n.id === selectedNodeId)?.type === "repository");
+  const showTabs = true;
 
   return (
     <div className="flex h-full flex-col">
-      {showTabs && jobId && (
+      {showTabs && (
         <div className="flex border-b border-border bg-background/50">
           <button
             onClick={() => setTab("info")}

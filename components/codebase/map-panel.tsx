@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import type { RepositorySnapshot } from "@/types/repository";
 import type { CodebaseGraph } from "@/types/graph";
+import type { ArchitectureReport } from "@/types/architecture";
 import { buildCodebaseGraph } from "@/lib/graph/build";
 import { useMemo } from "react";
 
@@ -28,6 +29,8 @@ type MapPanelProps = {
   selectedNodeId?: string | null;
   /** Pre-built graph from the server. If absent, builds from snapshot client-side. */
   graph?: CodebaseGraph;
+  archReport?: ArchitectureReport | null;
+  selectedModule?: string | null;
 };
 
 export function MapPanel({
@@ -35,6 +38,8 @@ export function MapPanel({
   onNodeSelect,
   selectedNodeId,
   graph: serverGraph,
+  archReport,
+  selectedModule,
 }: MapPanelProps) {
   const repoName = snapshot.metadata.name;
 
@@ -80,6 +85,8 @@ export function MapPanel({
             graph={graph}
             onNodeSelect={onNodeSelect}
             selectedNodeId={selectedNodeId}
+            archReport={archReport}
+            selectedModule={selectedModule}
           />
         )}
       </div>

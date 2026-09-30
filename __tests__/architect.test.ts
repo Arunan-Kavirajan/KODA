@@ -1,18 +1,13 @@
 import { ArchitectAgent } from "@/lib/agents/architect";
-import { OpenRouterProvider } from "@/lib/ai/openrouter";
-
-// Mock the provider
-jest.mock("@/lib/ai/openrouter");
+import { AIProvider } from "@/lib/ai/provider";
 
 describe("ArchitectAgent", () => {
-  let agent: ArchitectAgent;
-
-  beforeEach(() => {
-    agent = new ArchitectAgent();
-    (OpenRouterProvider as jest.Mock).mockClear();
-  });
-
   it("handles empty snapshot safely", async () => {
+    const mockProvider: AIProvider = {
+      generateText: jest.fn(),
+      generateStructured: jest.fn(),
+    };
+    const agent = new ArchitectAgent(mockProvider);
     const result = await agent.analyze({});
     expect(result.status).toBe("error");
     expect(result.metadata?.error).toBe("No repository snapshot provided");
@@ -22,19 +17,22 @@ describe("ArchitectAgent", () => {
     const validReport = {
       summary: "test",
       architectureStyle: { name: "test", confidence: 1, explanation: "test" },
-      entryPoints: [],
-      modules: [],
-      relationships: [],
-      externalDependencies: [],
-      readingOrder: [],
-      architecturalConcerns: []
+      entryPoints: [{ path: "index.ts", reason: "Main entry", confidence: 0.9 }],
+      modules: [{ name: "Core", paths: ["lib/"], responsibility: "Logic", importance: "high" }],
+      relationships: [{ from: "lib/", to: "utils/", relationship: "uses", explanation: "depends on utils" }],
+      externalDependencies: [{ name: "react", purpose: "UI", importance: "high" }],
+      readingOrder: [{ path: "index.ts", reason: "Start here" }],
+      architecturalConcerns: [{ title: "Monolith", explanation: "Too big", severity: "medium" }]
     };
 
-    const mockGenerate = jest.fn().mockResolvedValue(validReport);
-    (OpenRouterProvider as jest.Mock).mockImplementation(() => ({
-      generateStructured: mockGenerate
-    }));
+    const mockProvider: AIProvider = {
+      generateText: jest.fn(),
+      generateStructured: jest.fn().mockImplementation((prompt, validator) => {
+        return Promise.resolve(validator(validReport));
+      }),
+    };
 
+    const agent = new ArchitectAgent(mockProvider);
     const result = await agent.analyze({ 
       snapshot: { metadata: {} as any, entries: [], tree: [], stats: {} as any, ingestedAt: "" } 
     });
@@ -43,26 +41,50 @@ describe("ArchitectAgent", () => {
     expect(result.findings).toEqual(validReport);
   });
 
-  it("handles invalid ArchitectureReport from provider safely", async () => {
+  it("handles invalid ArchitectureReport safely", async () => {
     const invalidReport = { summary: "missing fields" };
 
-    // Set up the mock to simulate validation failure inside the agent logic
-    // The provider itself calls the validator, so we mock the provider to 
-    // actually execute the validator passed to it and throw if it fails.
-    const mockGenerate = jest.fn().mockImplementation((prompt, validator, system) => {
-      // Simulate provider executing validator
-      return Promise.resolve(validator(invalidReport)); 
-    });
-    
-    (OpenRouterProvider as jest.Mock).mockImplementation(() => ({
-      generateStructured: mockGenerate
-    }));
+    const mockProvider: AIProvider = {
+      generateText: jest.fn(),
+      generateStructured: jest.fn().mockImplementation((prompt, validator) => {
+        return Promise.resolve(validator(invalidReport)); 
+      }),
+    };
 
+    const agent = new ArchitectAgent(mockProvider);
     const result = await agent.analyze({ 
       snapshot: { metadata: {} as any, entries: [], tree: [], stats: {} as any, ingestedAt: "" } 
     });
 
     expect(result.status).toBe("error");
-    expect(result.metadata?.error).toMatch(/Missing or invalid/);
+    expect(result.metadata?.error).toMatch(/Missing or invalid architectureStyle/);
+  });
+
+  it("fails on invalid confidence bounds", async () => {
+    const invalidReport = {
+      summary: "test",
+      architectureStyle: { name: "test", confidence: 1.5, explanation: "test" }, // > 1
+      entryPoints: [],
+      modules: [],
+      relationships: [],
+      externalDependencies: [],
+      readingOrder: [],
+      architecturalConcerns: []
+    };
+
+    const mockProvider: AIProvider = {
+      generateText: jest.fn(),
+      generateStructured: jest.fn().mockImplementation((prompt, validator) => {
+        return Promise.resolve(validator(invalidReport)); 
+      }),
+    };
+
+    const agent = new ArchitectAgent(mockProvider);
+    const result = await agent.analyze({ 
+      snapshot: { metadata: {} as any, entries: [], tree: [], stats: {} as any, ingestedAt: "" } 
+    });
+
+    expect(result.status).toBe("error");
+    expect(result.metadata?.error).toMatch(/Invalid architectureStyle.confidence/);
   });
 });

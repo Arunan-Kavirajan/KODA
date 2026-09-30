@@ -1,39 +1,26 @@
 "use client";
 
-import { useState } from "react";
 import type { ArchitectureReport } from "@/types/architecture";
 
 type ArchitectureInspectorProps = {
-  jobId: string;
+  report: ArchitectureReport | null;
+  loading: boolean;
+  error: string | null;
+  onRun: () => void;
+  selectedModule: string | null;
+  onSelectModule: (name: string | null) => void;
+  onSelectNode: (nodeId: string) => void;
 };
 
-export function ArchitectureInspector({ jobId }: ArchitectureInspectorProps) {
-  const [report, setReport] = useState<ArchitectureReport | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const runArchitect = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await fetch(`/api/analyze/${jobId}/architect`, {
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to analyze architecture");
-      }
-
-      const data: ArchitectureReport = await response.json();
-      setReport(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setLoading(false);
-    }
-  };
-
+export function ArchitectureInspector({
+  report,
+  loading,
+  error,
+  onRun,
+  selectedModule,
+  onSelectModule,
+  onSelectNode,
+}: ArchitectureInspectorProps) {
   if (loading) {
     return (
       <div className="flex h-full flex-col">
@@ -55,7 +42,7 @@ export function ArchitectureInspector({ jobId }: ArchitectureInspectorProps) {
         <div className="flex-1 flex flex-col items-center justify-center p-4 text-center gap-4">
           <p className="font-mono text-xs text-destructive">{error}</p>
           <button
-            onClick={runArchitect}
+            onClick={onRun}
             className="font-mono text-[10px] text-accent hover:underline"
           >
             Retry Analysis
@@ -74,7 +61,7 @@ export function ArchitectureInspector({ jobId }: ArchitectureInspectorProps) {
             No architecture report generated yet.
           </p>
           <button
-            onClick={runArchitect}
+            onClick={onRun}
             className="rounded bg-accent/10 px-3 py-1.5 font-mono text-[10px] text-accent hover:bg-accent/20"
           >
             Run Architect Agent
@@ -111,7 +98,12 @@ export function ArchitectureInspector({ jobId }: ArchitectureInspectorProps) {
             <div className="space-y-2 mt-1">
               {report.entryPoints.map((ep, i) => (
                 <div key={i}>
-                  <p className="text-graph-file truncate">{ep.path}</p>
+                  <button
+                    onClick={() => onSelectNode(`file:${ep.path}`)}
+                    className="text-graph-file truncate hover:underline text-left block w-full"
+                  >
+                    {ep.path}
+                  </button>
                   <p className="text-[10px] text-muted-foreground">{ep.reason}</p>
                 </div>
               ))}
@@ -125,9 +117,46 @@ export function ArchitectureInspector({ jobId }: ArchitectureInspectorProps) {
             <Label>Modules</Label>
             <div className="space-y-2 mt-1">
               {report.modules.map((m, i) => (
-                <div key={i}>
+                <div 
+                  key={i} 
+                  className={`p-1 -ml-1 rounded cursor-pointer ${selectedModule === m.name ? "bg-accent/10" : "hover:bg-surface-raised"}`}
+                  onClick={() => onSelectModule(selectedModule === m.name ? null : m.name)}
+                >
                   <p className="text-graph-module font-semibold">{m.name} ({m.importance})</p>
                   <p className="text-[10px] text-muted-foreground">{m.responsibility}</p>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {report.relationships && report.relationships.length > 0 && (
+          <>
+            <Divider />
+            <Label>Relationships</Label>
+            <div className="space-y-2 mt-1">
+              {report.relationships.map((r, i) => (
+                <div key={i}>
+                  <p className="text-foreground/80">
+                    <span className="text-graph-module">{r.from}</span> → <span className="text-graph-module">{r.to}</span>
+                  </p>
+                  <p className="text-[10px] text-accent">{r.relationship}</p>
+                  <p className="text-[10px] text-muted-foreground">{r.explanation}</p>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {report.externalDependencies && report.externalDependencies.length > 0 && (
+          <>
+            <Divider />
+            <Label>External Dependencies</Label>
+            <div className="space-y-2 mt-1">
+              {report.externalDependencies.map((ed, i) => (
+                <div key={i}>
+                  <p className="text-graph-dep font-semibold">{ed.name} ({ed.importance})</p>
+                  <p className="text-[10px] text-muted-foreground">{ed.purpose}</p>
                 </div>
               ))}
             </div>
@@ -141,7 +170,12 @@ export function ArchitectureInspector({ jobId }: ArchitectureInspectorProps) {
             <div className="space-y-2 mt-1">
               {report.readingOrder.map((ro, i) => (
                 <div key={i}>
-                  <p className="text-foreground/80">{i + 1}. {ro.path}</p>
+                  <button
+                    onClick={() => onSelectNode(`file:${ro.path}`)}
+                    className="text-foreground/80 hover:underline text-left block w-full"
+                  >
+                    {i + 1}. {ro.path}
+                  </button>
                   <p className="text-[10px] text-muted-foreground">{ro.reason}</p>
                 </div>
               ))}
@@ -194,3 +228,4 @@ function Label({ children }: { children: React.ReactNode }) {
 function Divider() {
   return <div className="border-t border-border" />;
 }
+

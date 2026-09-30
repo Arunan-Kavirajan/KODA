@@ -17,6 +17,7 @@ import {
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import type { CodebaseGraph, GraphNode } from "@/types/graph";
+import type { ArchitectureReport } from "@/types/architecture";
 
 // ─── Custom Node Colors ──────────────────────────────────────────────────────
 
@@ -39,10 +40,11 @@ type CustomNodeData = {
   nodeType: string;
   metadata?: Record<string, unknown>;
   selected?: boolean;
+  highlightColor?: string | null;
 };
 
 function KodaNode({ data, selected }: { data: CustomNodeData; selected: boolean }) {
-  const color = NODE_COLORS[data.nodeType] ?? "#8a847c";
+  const color = data.highlightColor || NODE_COLORS[data.nodeType] || "#8a847c";
   const isRepo = data.nodeType === "repository";
   const isDir = data.nodeType === "directory";
   const isDep = data.nodeType === "external_dependency";
@@ -50,16 +52,16 @@ function KodaNode({ data, selected }: { data: CustomNodeData; selected: boolean 
   return (
     <div
       style={{
-        background: selected
+        background: selected || data.highlightColor
           ? `color-mix(in srgb, ${color} 20%, #1a1816)`
           : "#1a1816",
-        border: `${selected ? "1.5px" : "1px"} solid ${selected ? color : `color-mix(in srgb, ${color} 60%, #2a2723)`}`,
+        border: `${selected || data.highlightColor ? "1.5px" : "1px"} solid ${selected || data.highlightColor ? color : `color-mix(in srgb, ${color} 60%, #2a2723)`}`,
         borderRadius: isRepo ? "6px" : isDir ? "4px" : "3px",
         padding: isRepo ? "8px 14px" : "4px 10px",
         minWidth: isRepo ? "120px" : "80px",
         maxWidth: "180px",
         fontFamily: "var(--font-ibm-plex-mono, monospace)",
-        boxShadow: selected ? `0 0 8px color-mix(in srgb, ${color} 30%, transparent)` : "none",
+        boxShadow: selected || data.highlightColor ? `0 0 8px color-mix(in srgb, ${color} 30%, transparent)` : "none",
         transition: "all 0.15s ease",
       }}
     >
@@ -67,7 +69,7 @@ function KodaNode({ data, selected }: { data: CustomNodeData; selected: boolean 
         style={{
           fontSize: isRepo ? "11px" : "9px",
           fontWeight: isRepo ? 600 : 400,
-          color: selected ? color : `color-mix(in srgb, ${color} 90%, #e6e2dc)`,
+          color: selected || data.highlightColor ? color : `color-mix(in srgb, ${color} 90%, #e6e2dc)`,
           letterSpacing: isRepo ? "0.05em" : "0",
           textTransform: isRepo ? "uppercase" : "none",
           whiteSpace: "nowrap",
@@ -89,10 +91,6 @@ const nodeTypes: NodeTypes = {
 
 // ─── Layout Algorithm ─────────────────────────────────────────────────────────
 
-/**
- * Simple hierarchical layout: repo at top, dirs below, files below that,
- * external deps at the bottom. Uses breadth-first positioning.
- */
 function computeLayout(graphNodes: GraphNode[]): Map<string, { x: number; y: number }> {
   const positions = new Map<string, { x: number; y: number }>();
 
@@ -142,12 +140,16 @@ type CodebaseGraphViewProps = {
   graph: CodebaseGraph;
   onNodeSelect: (nodeId: string | null) => void;
   selectedNodeId?: string | null;
+  archReport?: ArchitectureReport | null;
+  selectedModule?: string | null;
 };
 
 export function CodebaseGraphView({
   graph,
   onNodeSelect,
   selectedNodeId,
+  archReport,
+  selectedModule,
 }: CodebaseGraphViewProps) {
   const positions = useMemo(() => computeLayout(graph.nodes), [graph.nodes]);
 
@@ -162,9 +164,37 @@ export function CodebaseGraphView({
     return connected;
   }, [selectedNodeId, graph.edges]);
 
+  // Precompute semantic highlights
+  const { highlightedPaths, highlightColorMap } = useMemo(() => {
+    const highlightedPaths = new Set<string>();
+    const highlightColorMap = new Map<string, string>();
+
+    if (!archReport) return { highlightedPaths, highlightColorMap };
+
+    // Entry points
+    if (!selectedModule) {
+      archReport.entryPoints.forEach(ep => {
+        highlightedPaths.add(ep.path);
+        highlightColorMap.set(ep.path, "#e0905a"); // Accent for entry points
+      });
+    }
+
+    // Selected module
+    if (selectedModule) {
+      const archModule = archReport.modules.find(m => m.name === selectedModule);
+      if (archModule) {
+        archModule.paths.forEach(p => {
+          highlightedPaths.add(p);
+          highlightColorMap.set(p, "#c4956a"); // Accent for module files
+        });
+      }
+    }
+
+    return { highlightedPaths, highlightColorMap };
+  }, [archReport, selectedModule]);
+
   const initialNodes: Node[] = useMemo(() => {
     // For large graphs, limit displayed nodes for readability
-    // Show: repository, all directories (up to 50), files (up to 100), deps (up to 30)
     const limits: Record<string, number> = {
       repository: Infinity,
       directory: 50,
@@ -178,12 +208,42 @@ export function CodebaseGraphView({
         const type = node.type;
         const limit = limits[type] ?? 50;
         counts[type] = (counts[type] ?? 0) + 1;
+        
+        // Ensure highlighted nodes are always included
+        if (node.type === "file" && node.metadata?.path) {
+          const path = node.metadata.path as string;
+          if (highlightedPaths.has(path) || (selectedModule && path.startsWith(selectedModule))) {
+            return true;
+          }
+        }
+        
         return counts[type] <= limit;
       })
       .map((node) => {
         const pos = positions.get(node.id) ?? { x: 0, y: 0 };
         const isSelected = node.id === selectedNodeId;
         const isConnected = connectedNodeIds.has(node.id);
+        
+        let nodeHighlightColor = null;
+        let isSemanticallyHighlighted = false;
+        if (node.type === "file" && node.metadata?.path) {
+          const path = node.metadata.path as string;
+          if (highlightColorMap.has(path)) {
+            nodeHighlightColor = highlightColorMap.get(path)!;
+            isSemanticallyHighlighted = true;
+          } else if (selectedModule) {
+            // Check if it's within the module directory as fallback
+            const isWithinModule = archReport?.modules.find(m => m.name === selectedModule)?.paths.some(p => path.startsWith(p));
+            if (isWithinModule) {
+               nodeHighlightColor = "#c4956a";
+               isSemanticallyHighlighted = true;
+            }
+          }
+        }
+
+        const opacity = selectedNodeId 
+          ? (isSelected || isConnected ? 1 : 0.35)
+          : (selectedModule ? (isSemanticallyHighlighted ? 1 : 0.2) : 1);
 
         return {
           id: node.id,
@@ -194,45 +254,54 @@ export function CodebaseGraphView({
             nodeType: node.type,
             metadata: node.metadata,
             selected: isSelected || isConnected,
+            highlightColor: nodeHighlightColor,
           },
-          style: {
-            opacity: selectedNodeId && !isSelected && !isConnected ? 0.35 : 1,
-          },
+          style: { opacity },
         };
       });
-  }, [graph.nodes, positions, selectedNodeId, connectedNodeIds]);
+  }, [graph.nodes, positions, selectedNodeId, connectedNodeIds, highlightedPaths, highlightColorMap, selectedModule, archReport]);
 
   const initialEdges: Edge[] = useMemo(() => {
     const nodeIds = new Set(initialNodes.map((n) => n.id));
     return graph.edges
       .filter((edge) => nodeIds.has(edge.source) && nodeIds.has(edge.target))
-      .map((edge) => ({
-        id: edge.id,
-        source: edge.source,
-        target: edge.target,
-        type: "default",
-        style: {
-          stroke:
-            edge.type === "imports"
-              ? "#c4956a"
-              : edge.type === "depends_on"
-                ? "#7a8ec4"
-                : "#3d3832",
-          strokeWidth: edge.type === "contains" ? 1 : 1.5,
-          opacity:
-            selectedNodeId &&
-            edge.source !== selectedNodeId &&
-            edge.target !== selectedNodeId
-              ? 0.15
-              : 0.8,
-        },
-        animated: edge.type === "imports",
-        label: undefined,
-      }));
-  }, [graph.edges, initialNodes, selectedNodeId]);
+      .map((edge) => {
+        const isConnectedToSelected = selectedNodeId && (edge.source === selectedNodeId || edge.target === selectedNodeId);
+        
+        return {
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          type: "default",
+          style: {
+            stroke:
+              edge.type === "imports"
+                ? "#c4956a"
+                : edge.type === "depends_on"
+                  ? "#7a8ec4"
+                  : "#3d3832",
+            strokeWidth: edge.type === "contains" ? 1 : 1.5,
+            opacity: selectedNodeId 
+              ? (isConnectedToSelected ? 0.8 : 0.15)
+              : (selectedModule ? 0.15 : 0.8),
+          },
+          animated: edge.type === "imports",
+          label: undefined,
+        };
+      });
+  }, [graph.edges, initialNodes, selectedNodeId, selectedModule]);
 
-  const [nodes, , onNodesChange] = useNodesState(initialNodes);
+  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
+
+  // Update nodes and edges when initial data changes
+  useMemo(() => {
+    setNodes(initialNodes);
+  }, [initialNodes, setNodes]);
+
+  useMemo(() => {
+    setEdges(initialEdges);
+  }, [initialEdges, setEdges]);
 
   const onConnect = useCallback(
     (params: Connection) => setEdges((eds) => addEdge(params, eds)),
@@ -284,7 +353,7 @@ export function CodebaseGraphView({
         <MiniMap
           nodeColor={(node) => {
             const data = node.data as CustomNodeData;
-            return NODE_COLORS[data?.nodeType ?? "file"] ?? "#8a847c";
+            return data.highlightColor || (NODE_COLORS[data?.nodeType ?? "file"] ?? "#8a847c");
           }}
           style={{
             background: "#0c0b0a",

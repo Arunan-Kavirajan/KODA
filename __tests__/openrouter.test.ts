@@ -60,14 +60,39 @@ describe("OpenRouterProvider", () => {
     await expect(provider.generateStructured("test", (d) => d)).rejects.toThrow(/Failed to parse/);
   });
 
-  it("throws on API error", async () => {
+  it("throws on 429 rate limit", async () => {
     (global.fetch as jest.Mock).mockResolvedValue({
       ok: false,
-      status: 401,
-      statusText: "Unauthorized",
+      status: 429,
     });
 
     const provider = new OpenRouterProvider();
-    await expect(provider.generateText("test")).rejects.toThrow("401 Unauthorized");
+    await expect(provider.generateText("test")).rejects.toThrow(/rate limit exceeded/);
+  });
+
+  it("throws on network error", async () => {
+    (global.fetch as jest.Mock).mockRejectedValue(new Error("Network down"));
+
+    const provider = new OpenRouterProvider();
+    await expect(provider.generateText("test")).rejects.toThrow(/network failure/);
+  });
+  
+  it("throws on timeout", async () => {
+    const error = new Error("AbortError");
+    error.name = "AbortError";
+    (global.fetch as jest.Mock).mockRejectedValue(error);
+
+    const provider = new OpenRouterProvider();
+    await expect(provider.generateText("test")).rejects.toThrow(/timed out/);
+  });
+
+  it("throws on 500 server error", async () => {
+    (global.fetch as jest.Mock).mockResolvedValue({
+      ok: false,
+      status: 502,
+    });
+
+    const provider = new OpenRouterProvider();
+    await expect(provider.generateText("test")).rejects.toThrow(/server error/);
   });
 });
