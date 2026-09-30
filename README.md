@@ -5,7 +5,7 @@
   <em>KODA ingests public repositories to build a structural source of truth before applying AI architectural reasoning.</em>
   <br />
   <br />
-  <strong><a href="#">[View Live Demo]</a></strong>
+  <strong><a href="https://koda-github.vercel.app">[View Live Demo]</a></strong>
   <br />
   <br />
   <img src="https://img.shields.io/badge/Status-In%20Development-yellow?style=for-the-badge" alt="Status" />
